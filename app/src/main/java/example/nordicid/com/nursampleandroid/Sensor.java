@@ -90,8 +90,8 @@ public class Sensor extends Activity {
         setContentView(R.layout.activity_sensor);
 
         //Get NurApi- and Accessory extension handles from MainActivity
-        mNurApi = MainActivity.GetNurApi();
-        mAccExt = MainActivity.GetAccessoryExtensionApi();
+        mNurApi = NurHelper.GetNurApi();
+        mAccExt = NurHelper.GetAccessoryExtensionApi();
 
         //Set event listener for this activity. Mainly for receiving IOEvents
         mNurApi.setListener(mNurApiEventListener);

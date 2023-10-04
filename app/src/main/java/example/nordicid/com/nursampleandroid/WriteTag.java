@@ -48,7 +48,7 @@ public class WriteTag extends Activity {
         setContentView(R.layout.activity_write);
 
         //Get NurApi and Accessory handles from MainActivity
-        mNurApi = MainActivity.GetNurApi();
+        mNurApi = NurHelper.GetNurApi();
 
         //Set event listener for this activity
         mNurApi.setListener(mNurApiEventListener);

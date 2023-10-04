@@ -72,37 +72,36 @@ public class Inventory extends Activity {
         setContentView(R.layout.activity_inventory);
 
         //Get NurApi and Accessory handles from MainActivity
-        mNurApi = MainActivity.GetNurApi();
-        mAccExt = MainActivity.GetAccessoryExtensionApi();
+        mNurApi = NurHelper.GetNurApi();
+        mAccExt = NurHelper.GetAccessoryExtensionApi();
 
         //Set event listener for this activity
         mNurApi.setListener(mNurApiEventListener);
 
-        mResultTextView = (TextView)findViewById(R.id.text_result);
-        mStatusTextView = (TextView)findViewById(R.id.text_status);
-        mEPCTextView = (TextView)findViewById(R.id.text_epc);
+        mResultTextView = (TextView) findViewById(R.id.text_result);
+        mStatusTextView = (TextView) findViewById(R.id.text_status);
+        mEPCTextView = (TextView) findViewById(R.id.text_epc);
 
         Button mScanSingleButton = (Button) findViewById(R.id.buttonScanSingleTag);
-        mInvStreamButton = (ToggleButton)findViewById(R.id.toggleButtonInvStream);
+        mInvStreamButton = (ToggleButton) findViewById(R.id.toggleButtonInvStream);
 
         //UI of Info text. Need to change based on reader type connected.
-        TextView mInvStreamHdr = (TextView)findViewById(R.id.textViewInvStrHdr);
-        TextView mInvStreamTxt1 = (TextView)findViewById(R.id.textViewInvStr1);
-        TextView mInvStreamTxt2 = (TextView)findViewById(R.id.textViewInvStr2);
+        TextView mInvStreamHdr = (TextView) findViewById(R.id.textViewInvStrHdr);
+        TextView mInvStreamTxt1 = (TextView) findViewById(R.id.textViewInvStr1);
+        TextView mInvStreamTxt2 = (TextView) findViewById(R.id.textViewInvStr2);
 
-        TextView mSingleTagHdr = (TextView)findViewById(R.id.textViewSingleHdr);
-        TextView mSingleTagTxt1 = (TextView)findViewById(R.id.textViewSingle1);
-        TextView mSingleTagTxt2 = (TextView)findViewById(R.id.textViewSingle2);
-        TextView mSingleTagTxt3 = (TextView)findViewById(R.id.textViewSingle3);
-        TextView mSingleTagTxt4 = (TextView)findViewById(R.id.textViewSingle4);
+        TextView mSingleTagHdr = (TextView) findViewById(R.id.textViewSingleHdr);
+        TextView mSingleTagTxt1 = (TextView) findViewById(R.id.textViewSingle1);
+        TextView mSingleTagTxt2 = (TextView) findViewById(R.id.textViewSingle2);
+        TextView mSingleTagTxt3 = (TextView) findViewById(R.id.textViewSingle3);
+        TextView mSingleTagTxt4 = (TextView) findViewById(R.id.textViewSingle4);
 
         mTriggerDown = false;
         mSingleTagDoTask = false;
         mTagsAddedCounter = 0;
         mTagUnderReview = "";
 
-        if(MainActivity.IsAccessorySupported())
-        {
+        if (NurHelper.IsAccessorySupported()) {
             //Accessories are available so we can start/stop inventory from reader button
             mInvStreamHdr.setText("InventoryStream (Trigger button)");
             mInvStreamTxt1.setText("1. Press and keep trigger button down. (Inventory started)");
@@ -115,9 +114,7 @@ public class Inventory extends Activity {
             //No need buttons on UI
             mInvStreamButton.setVisibility(View.GONE);
             mScanSingleButton.setVisibility((View.GONE));
-        }
-        else
-        {
+        } else {
             //No accessory. This is probably fixed reader. Inventory must start from button on UI
             mInvStreamHdr.setText("InventoryStream");
             mInvStreamTxt1.setText("Turn inventory stream on/off from button below.");
@@ -169,7 +166,7 @@ public class Inventory extends Activity {
     protected void onStart() {
         super.onStart();
         Log.i(TAG, "Inventory onStart ");
-        mUiEpcMsg="EPC";
+        mUiEpcMsg = "EPC";
         mUiResultMsg = "Result";
         mUiStatusMsg = "Waiting button press...";
         mUiStatusColor = Color.BLACK;
@@ -183,35 +180,34 @@ public class Inventory extends Activity {
         super.onStop();
         Log.i(TAG, "Inventory onStop ");
         //Make sure going out from ScanSingleTagThread
-        mSingleTagDoTask=false;
+        mSingleTagDoTask = false;
     }
 
 
-    public void writeEpcByTID(byte[] tidBuffer, int tidBufferLength, int newEpcBufferLength, byte[] newEpcBuffer) throws Exception
-    {
-        byte [] wrBuf = new byte[MAX_EPC_LENGTH + 2];
+    public void writeEpcByTID(byte[] tidBuffer, int tidBufferLength, int newEpcBufferLength, byte[] newEpcBuffer) throws Exception {
+        byte[] wrBuf = new byte[MAX_EPC_LENGTH + 2];
         int paddedEpcBufferLen;
         int pc;
-        paddedEpcBufferLen = ((newEpcBufferLength * 8) + 15)/16*2;
-        Arrays.fill(wrBuf,(byte) 0);
+        paddedEpcBufferLen = ((newEpcBufferLength * 8) + 15) / 16 * 2;
+        Arrays.fill(wrBuf, (byte) 0);
 
         //Set epc length in words
-        pc = (paddedEpcBufferLen/2) << 11;
-        wrBuf[0] = (byte)(pc>>8);
-        wrBuf[1] = (byte)pc;
+        pc = (paddedEpcBufferLen / 2) << 11;
+        wrBuf[0] = (byte) (pc >> 8);
+        wrBuf[1] = (byte) pc;
 
         //Add Epc
-        System.arraycopy(newEpcBuffer, 0, wrBuf, 2, newEpcBufferLength );
-        mNurApi.writeTag(BANK_TID, 0, tidBufferLength * 8, tidBuffer, BANK_EPC, 1, paddedEpcBufferLen + 2,wrBuf);
+        System.arraycopy(newEpcBuffer, 0, wrBuf, 2, newEpcBufferLength);
+        mNurApi.writeTag(BANK_TID, 0, tidBufferLength * 8, tidBuffer, BANK_EPC, 1, paddedEpcBufferLen + 2, wrBuf);
     }
 
     /**
      * ScanSingleTagThread function making inventory until single tag found from antenna field or time out.
      */
-    private void ScanSingleTagThread()
-    {
+    private void ScanSingleTagThread() {
         Log.i(TAG, "ScanSingleTagThread");
-        if(mSingleTagDoTask  || mTriggerDown) return; //Already running tasks so let's not disturb that operation.
+        if (mSingleTagDoTask || mTriggerDown)
+            return; //Already running tasks so let's not disturb that operation.
 
         Thread sstThread = new Thread(new Runnable() {
             @Override
@@ -223,9 +219,7 @@ public class Inventory extends Activity {
                     //Log.i(TAG, "Current TxLevel = " + mSingleTempTxLevel);
                     //Set rather low TX power. You need to get close to tag for successful reading
                     mNurApi.setSetupTxLevel(NurApi.TXLEVEL_9); //This is attenuation level as dBm from max level 27dBm
-                }
-                catch (Exception ex)
-                {
+                } catch (Exception ex) {
                     mUiStatusMsg = ex.getMessage();
                     mUiStatusColor = Color.RED;
                     showOnUI();
@@ -235,7 +229,7 @@ public class Inventory extends Activity {
 
                 mUiResultMsg = ".";
                 mUiResultColor = Color.BLUE;
-                mUiEpcMsg="";
+                mUiEpcMsg = "";
                 mUiEpcColor = Color.BLACK;
 
                 mSingleTagDoTask = true;
@@ -244,9 +238,8 @@ public class Inventory extends Activity {
 
                 long time_start = System.currentTimeMillis();
 
-                while (mSingleTagDoTask)
-                {
-                    mUiStatusMsg="Scan single tag (round:" + String.valueOf(mSingleTagRoundCount) + ")";
+                while (mSingleTagDoTask) {
+                    mUiStatusMsg = "Scan single tag (round:" + String.valueOf(mSingleTagRoundCount) + ")";
                     showOnUI();
                     try {
                         mNurApi.clearIdBuffer(); //Clear buffer from existing tags
@@ -257,7 +250,7 @@ public class Inventory extends Activity {
                         mSingleTagRoundCount++;
                         if (resp.numTagsFound > 1) {
                             mUiResultMsg = String.valueOf("Too many tags seen");
-                            mUiResultColor=Color.RED;
+                            mUiResultColor = Color.RED;
                             mSingleTagFoundCount = 0;
                         } else if (resp.numTagsFound == 1) {
                             NurTag tag = mNurApi.fetchTagAt(true, 0); //Get tag information from pos 0
@@ -266,7 +259,7 @@ public class Inventory extends Activity {
                             if (isSameTag(tag.getEpcString())) mSingleTagFoundCount++;
                             else mSingleTagFoundCount = 1; //It was not. Start all over.
 
-                            mSingleTagFoundCount=3;
+                            mSingleTagFoundCount = 3;
                             if (mSingleTagFoundCount == 3) {
                                 //Single tag found multiple times (3) in row so let's accept.
                                 try {
@@ -295,9 +288,7 @@ public class Inventory extends Activity {
                                     //SAMPLE WRITING EPC SINGULATED BY TID
                                     //final byte newEpc[] = new byte[] { (byte)0xaa, (byte)0xbb,(byte)0xcc,(byte)0xdd };
                                     //writeEpcByTID(tidBank1,tidBank1.length, newEpc.length, newEpc);
-                                }
-                                catch (NurApiException e)
-                                {
+                                } catch (NurApiException e) {
                                     mUiEpcMsg += "\nTID:" + e.getMessage();
                                 }
 
@@ -332,7 +323,7 @@ public class Inventory extends Activity {
                                 //Set nice 'success' color to result text
                                 mUiResultColor = Color.rgb(0, 128, 0);
                                 //give good beep for user on device if available
-                                if(MainActivity.IsAccessorySupported())
+                                if (NurHelper.IsAccessorySupported())
                                     mAccExt.beepAsync(500);
                                 //..and on phone
                                 Beeper.beep(Beeper.BEEP_300MS);
@@ -344,19 +335,19 @@ public class Inventory extends Activity {
                                 for (int x = 0; x < mSingleTagFoundCount; x++)
                                     dots += ".";
 
-                                mUiResultMsg=dots;
-                                mUiResultColor =  Color.BLUE;
+                                mUiResultMsg = dots;
+                                mUiResultColor = Color.BLUE;
                             }
                         }
 
                         //We try scan max 7000 millisec
-                        if(System.currentTimeMillis() >= time_start+7000) {
+                        if (System.currentTimeMillis() >= time_start + 7000) {
                             //Give up.
                             mUiResultMsg = "No single tag found";
                             mUiResultColor = Color.RED;
                             mUiStatusMsg = "Waiting button press...";
                             //give some kind of "timeout beeps" for user
-                            if(MainActivity.IsAccessorySupported())
+                            if (NurHelper.IsAccessorySupported())
                                 mAccExt.beepAsync(300);
                             else
                                 Beeper.beep(Beeper.BEEP_300MS);
@@ -365,7 +356,7 @@ public class Inventory extends Activity {
                         }
 
                     } catch (Exception ex) {
-                        mUiStatusMsg=ex.getMessage();
+                        mUiStatusMsg = ex.getMessage();
                         mUiStatusColor = Color.RED;
                     }
                 }
@@ -373,9 +364,7 @@ public class Inventory extends Activity {
                 //Original TX level back
                 try {
                     mNurApi.setSetupTxLevel(mSingleTempTxLevel);
-                }
-                catch (Exception ex)
-                {
+                } catch (Exception ex) {
                     mUiStatusMsg = ex.getMessage();
                     mUiStatusColor = Color.RED;
                 }
@@ -393,9 +382,8 @@ public class Inventory extends Activity {
      * Start inventory streaming. After this you can receive InventoryStream events.
      * Inventory stream is active around 20 sec then stopped automatically. Event received about the state of streaming so you can start it immediately again.
      */
-    private void StartInventoryStream()
-    {
-        if(mSingleTagDoTask  || mTriggerDown) {
+    private void StartInventoryStream() {
+        if (mSingleTagDoTask || mTriggerDown) {
             mInvStreamButton.setChecked(false);
             return; //Already running tasks so let's not disturb that operation.
         }
@@ -407,9 +395,7 @@ public class Inventory extends Activity {
             mTagsAddedCounter = 0;
             mUiResultMsg = "Tags:" + String.valueOf(mTagsAddedCounter);
             mUiStatusMsg = "Inventory streaming...";
-        }
-        catch (Exception ex)
-        {
+        } catch (Exception ex) {
             mUiResultMsg = ex.getMessage();
         }
     }
@@ -417,74 +403,62 @@ public class Inventory extends Activity {
     /**
      * Stop streaming.
      */
-    private void StopInventoryStream()
-    {
+    private void StopInventoryStream() {
         try {
             if (mNurApi.isInventoryStreamRunning())
                 mNurApi.stopInventoryStream();
             mTriggerDown = false;
             mUiStatusMsg = "Waiting button press...";
             mUiStatusColor = Color.BLACK;
-        }
-        catch (Exception ex)
-        {
+        } catch (Exception ex) {
             mUiResultMsg = ex.getMessage();
             mUiResultColor = Color.RED;
         }
     }
 
     /**
-     *  Handle I/O events from reader.
-     *  When user press button on reader, event fired and handled in this function.
-     *  NurEventIOChange offers 'source' and 'direction' to determine which button changes state.
-     *  source 100 = Trigger button
-     *  source 101 = Power button
-     *  source 102 = Unpair button
-     *  direction 0 = Button released
-     *  direction 1 = Button pressed down
+     * Handle I/O events from reader.
+     * When user press button on reader, event fired and handled in this function.
+     * NurEventIOChange offers 'source' and 'direction' to determine which button changes state.
+     * source 100 = Trigger button
+     * source 101 = Power button
+     * source 102 = Unpair button
+     * direction 0 = Button released
+     * direction 1 = Button pressed down
      */
-    private void HandleIOEvent(NurEventIOChange event)
-    {
+    private void HandleIOEvent(NurEventIOChange event) {
         try {
             Log.i(TAG, "IO src=" + Integer.toString(event.source) + " dir=" + Integer.toString(event.direction));
 
             if (event.source == 100) {
                 //Trigger down.
-                if(mSingleTagDoTask) return; //Only if Single scan not running
-                if(event.direction == 1)
+                if (mSingleTagDoTask) return; //Only if Single scan not running
+                if (event.direction == 1)
                     StartInventoryStream(); //Start Inventory streaming.
                 else if (event.direction == 0)
                     StopInventoryStream(); //Trigger released. Stop streaming if running.
-            }
-            else if(event.source == 101)
-            {
+            } else if (event.source == 101) {
                 //Power button pressed or released.
-            }
-            else if(event.source == 102)
-            {
+            } else if (event.source == 102) {
                 //Unpair button pressed or released.
                 //Single scan operation start when Unpair button push down but no need to keep down during operation.
-                if(event.direction == 1) {
+                if (event.direction == 1) {
                     //Unpair button pressed. if SingleScan already running so nothing to do.
                     ScanSingleTagThread(); //Do the single scan. No need to keep unpair button down.
                 }
-            }
-            else if(event.source == ACC_SENSOR_SOURCE.ToFSensor.getNumVal()) {
+            } else if (event.source == ACC_SENSOR_SOURCE.ToFSensor.getNumVal()) {
                 //ToF sensor of EXA21 has triggered GPIO event
                 // Direction goes 0->1 when sensors reads less than Range Lo filter (unit: mm)
                 // Direction goes 1->0 when sensors reads more than Range Hi filter (unit: mm)
-                if(event.direction == 1) {
+                if (event.direction == 1) {
                     //There are something front of EXA21 ToF sensor, let's start inventory
                     StartInventoryStream();
-                }
-                else {
+                } else {
                     //Nothing seen at front of ToF sensor. It's time to stop inventory.
                     StopInventoryStream();
                 }
             }
-        }
-        catch (Exception ex)
-        {
+        } catch (Exception ex) {
             mUiResultMsg = ex.getMessage();
         }
 
@@ -493,17 +467,17 @@ public class Inventory extends Activity {
 
     /**
      * Check is tag same as previous one
+     *
      * @param epc
      * @return
      */
-    static boolean isSameTag(String epc)
-    {
-            if(epc.compareTo(mTagUnderReview) == 0)
-                return true;
-            else //set new
-                mTagUnderReview = epc;
+    static boolean isSameTag(String epc) {
+        if (epc.compareTo(mTagUnderReview) == 0)
+            return true;
+        else //set new
+            mTagUnderReview = epc;
 
-            return false;
+        return false;
     }
 
     /**
@@ -511,18 +485,27 @@ public class Inventory extends Activity {
      * NOTE: All NurApi events are called from NurApi thread, thus direct UI updates are not allowed.
      * If you need to access UI controls, you can use runOnUiThread(Runnable) or Handler.
      */
-    private NurApiListener mNurApiEventListener = new NurApiListener()
-    {
+    private NurApiListener mNurApiEventListener = new NurApiListener() {
         @Override
-        public void triggeredReadEvent(NurEventTriggeredRead event) { }
+        public void triggeredReadEvent(NurEventTriggeredRead event) {
+        }
+
         @Override
-        public void traceTagEvent(NurEventTraceTag event) { }
+        public void traceTagEvent(NurEventTraceTag event) {
+        }
+
         @Override
-        public void programmingProgressEvent(NurEventProgrammingProgress event) { }
+        public void programmingProgressEvent(NurEventProgrammingProgress event) {
+        }
+
         @Override
-        public void nxpEasAlarmEvent(NurEventNxpAlarm event) { }
+        public void nxpEasAlarmEvent(NurEventNxpAlarm event) {
+        }
+
         @Override
-        public void logEvent(int level, String txt) { }
+        public void logEvent(int level, String txt) {
+        }
+
         @Override
         public void inventoryStreamEvent(NurEventInventory event) {
 
@@ -535,9 +518,9 @@ public class Inventory extends Activity {
 
                 } else {
 
-                    if(event.tagsAdded>0) {
+                    if (event.tagsAdded > 0) {
                         //At least one new tag found
-                        if(MainActivity.IsAccessorySupported())
+                        if (NurHelper.IsAccessorySupported())
                             mAccExt.beepAsync(20); //Beep on device
                         else
                             Beeper.beep(Beeper.BEEP_40MS); //Cannot beep on device so we beep on phone
@@ -545,7 +528,7 @@ public class Inventory extends Activity {
                         NurTagStorage tagStorage = mNurApi.getStorage(); //Storage contains all tags found
 
                         //Iterate just received tags based on event.tagsAdded
-                        for(int x=mTagsAddedCounter;x<mTagsAddedCounter+event.tagsAdded;x++) {
+                        for (int x = mTagsAddedCounter; x < mTagsAddedCounter + event.tagsAdded; x++) {
                             //Real application should handle all tags iterated here.
                             //But this just show how to get tag from storage.
                             String epcString;
@@ -562,45 +545,69 @@ public class Inventory extends Activity {
                         showOnUI(); //Show results on UI
                     }
                 }
-            }
-            catch (Exception ex)
-            {
+            } catch (Exception ex) {
                 //mStatusTextView.setText(ex.getMessage());
-               // mUiStatusColor = Color.RED;
+                // mUiStatusColor = Color.RED;
                 //showOnUI();
             }
         }
+
         @Override
-        public void inventoryExtendedStreamEvent(NurEventInventory event) {}
+        public void inventoryExtendedStreamEvent(NurEventInventory event) {
+        }
+
         @Override
-        public void frequencyHopEvent(NurEventFrequencyHop event) { }
+        public void frequencyHopEvent(NurEventFrequencyHop event) {
+        }
+
         @Override
-        public void epcEnumEvent(NurEventEpcEnum event) { }
+        public void epcEnumEvent(NurEventEpcEnum event) {
+        }
+
         @Override
         public void disconnectedEvent() {
             finish(); //Device disconnected. Exit from this activity
         }
+
         @Override
-        public void deviceSearchEvent(NurEventDeviceInfo event) { }
+        public void deviceSearchEvent(NurEventDeviceInfo event) {
+        }
+
         @Override
-        public void debugMessageEvent(String event) { }
+        public void debugMessageEvent(String event) {
+        }
+
         @Override
-        public void connectedEvent() { }
+        public void connectedEvent() {
+        }
+
         @Override
-        public void clientDisconnectedEvent(NurEventClientInfo event) { }
+        public void clientDisconnectedEvent(NurEventClientInfo event) {
+        }
+
         @Override
-        public void clientConnectedEvent(NurEventClientInfo event) { }
+        public void clientConnectedEvent(NurEventClientInfo event) {
+        }
+
         @Override
-        public void bootEvent(String event) {}
+        public void bootEvent(String event) {
+        }
+
         @Override
         public void IOChangeEvent(NurEventIOChange event) {
-             HandleIOEvent(event);
+            HandleIOEvent(event);
         }
+
         @Override
-        public void autotuneEvent(NurEventAutotune event) { }
+        public void autotuneEvent(NurEventAutotune event) {
+        }
+
         @Override
-        public void tagTrackingScanEvent(NurEventTagTrackingData event) { }
+        public void tagTrackingScanEvent(NurEventTagTrackingData event) {
+        }
+
         //@Override
-        public void tagTrackingChangeEvent(NurEventTagTrackingChange event) { }
+        public void tagTrackingChangeEvent(NurEventTagTrackingChange event) {
+        }
     };
 }

@@ -49,7 +49,7 @@ public class Beeper {
     {
         if (mSoundPool == null)
         {
-            mSoundPool = new SoundPool(LAST, AudioManager.STREAM_MUSIC, 0);
+            mSoundPool = new SoundPool.Builder().setMaxStreams(LAST).build();
             mSoundIDs[BEEP_40MS] = mSoundPool.load( ctx, R.raw.blep_40ms, 1);
             mSoundIDs[BEEP_100MS] = mSoundPool.load(ctx, R.raw.blep_100ms, 1);
             mSoundIDs[BEEP_300MS] = mSoundPool.load(ctx, R.raw.blep_300ms, 1);

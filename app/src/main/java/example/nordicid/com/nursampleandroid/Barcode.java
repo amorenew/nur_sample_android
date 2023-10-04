@@ -40,8 +40,8 @@ public class Barcode extends Activity {
         setContentView(R.layout.activity_barcode);
 
         //Get NurApi and Accessory handles from MainActivity
-        mNurApi = MainActivity.GetNurApi();
-        mAccExt = MainActivity.GetAccessoryExtensionApi();
+        mNurApi = NurHelper.GetNurApi();
+        mAccExt = NurHelper.GetAccessoryExtensionApi();
 
         //Set event listener for this activity
         mNurApi.setListener(mNurApiEventListener);

@@ -42,7 +42,7 @@ public class Trace extends Activity implements NurListener {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_trace);
-        NurHelper.getInstance().initReading();
+        NurHelper.getInstance().initReading(this);
         mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
         mPctText = (EditText) findViewById(R.id.pct_text);
         mTraceableEpcEditText = (TextView) findViewById(R.id.locate_epc_edittext);

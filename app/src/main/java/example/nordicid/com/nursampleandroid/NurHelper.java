@@ -162,7 +162,8 @@ public class NurHelper {
         mUiConnButtonText = "CONNECT";
     }
 
-    public void initReading() {
+    public void initReading( NurListener nurListener) {
+        setNurListener(nurListener);
         mTraceController = new TraceTagController(mNurApi);
         mTraceController.setListener(new TraceTagController.TraceTagListener() {
             @Override

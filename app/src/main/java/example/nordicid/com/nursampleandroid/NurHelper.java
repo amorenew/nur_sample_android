@@ -5,8 +5,6 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.util.Log;
-import android.view.View;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
@@ -41,6 +39,10 @@ import com.nordicid.nurapi.NurRespDevCaps;
 import com.nordicid.nurapi.NurRespReaderInfo;
 import com.nordicid.nurapi.NurTag;
 import com.nordicid.nurapi.NurTagStorage;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -162,32 +164,141 @@ public class NurHelper {
         mUiConnButtonText = "CONNECT";
     }
 
-    public void initReading( NurListener nurListener) {
-        setNurListener(nurListener);
-        mTraceController = new TraceTagController(mNurApi);
-        mTraceController.setListener(new TraceTagController.TraceTagListener() {
-            @Override
-            public void traceTagEvent(TraceTagController.TracedTagInfo data) {
-                int scaledRssi = data.scaledRssi;
-                mNurListener.onTraceTagEvent(scaledRssi);
-                mLastVal = scaledRssi;
+    /**
+     * NurApi event handlers.
+     * NOTE: All NurApi events are called from NurApi thread, thus direct UI updates are not allowed.
+     * If you need to access UI controls, you can use runOnUiThread(Runnable) or Handler.
+     */
+    private final NurApiListener mNurApiListener = new NurApiListener() {
+        @Override
+        public void triggeredReadEvent(NurEventTriggeredRead event) {
+        }
+
+        @Override
+        public void traceTagEvent(NurEventTraceTag event) {
+        }
+
+        @Override
+        public void programmingProgressEvent(NurEventProgrammingProgress event) {
+        }
+
+        @Override
+        public void nxpEasAlarmEvent(NurEventNxpAlarm event) {
+        }
+
+        @Override
+        public void logEvent(int level, String txt) {
+        }
+
+        @Override
+        public void inventoryStreamEvent(NurEventInventory event) {
+        }
+
+        @Override
+        public void inventoryExtendedStreamEvent(NurEventInventory event) {
+        }
+
+        @Override
+        public void frequencyHopEvent(NurEventFrequencyHop event) {
+        }
+
+        @Override
+        public void epcEnumEvent(NurEventEpcEnum event) {
+        }
+
+        @Override
+        public void disconnectedEvent() {
+            mIsConnected = false;
+            Log.i(TAG, "Disconnected!");
+            mNurListener.onConnected(false);
+            context.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(context, "Reader disconnected", Toast.LENGTH_SHORT).show();
+                    showConnecting();
+
+                    // Show smart pair ui
+                    if (!mShowingSmartPair && hAcTr != null) {
+                        String clsName = hAcTr.getClass().getSimpleName();
+                        if (clsName.equals("NurApiSmartPairAutoConnect")) {
+                            mShowingSmartPair = showSmartPairUI();
+                        }
+                    } else {
+                        mShowingSmartPair = false;
+                    }
+                }
+            });
+        }
+
+        @Override
+        public void deviceSearchEvent(NurEventDeviceInfo event) {
+        }
+
+        @Override
+        public void debugMessageEvent(String event) {
+        }
+
+        @Override
+        public void connectedEvent() {
+            //Device is connected.
+            // Let's find out is device provided with accessory support (Barcode reader, battery info...) like EXA
+            try {
+                if (mAccExt.isSupported()) {
+                    //Yes. Accessories supported
+                    mIsAccessorySupported = true;
+                    //Let's take name of device from Accessory api
+                    mUiConnStatusText = "Connected to " + mAccExt.getConfig().name;
+                } else {
+                    //Accessories not supported. Probably fixed reader.
+                    mIsAccessorySupported = false;
+                    NurRespReaderInfo ri = mNurApi.getReaderInfo();
+                    mUiConnStatusText = "Connected to " + ri.name;
+                }
+            } catch (Exception ex) {
+                mUiConnStatusText = ex.getMessage();
             }
 
-            @Override
-            public void readerDisconnected() {
-                stopTrace();
-            }
+            mIsConnected = true;
+            Log.i(TAG, "Connected!");
+            //Beeper.beep(Beeper.BEEP_100MS);
+            mNurListener.onConnected(true);
 
-            @Override
-            public void readerConnected() {
-            }
+            //amr
+            //mUiConnStatusTextColor = Color.GREEN;
+            mUiConnButtonText = "DISCONNECT";
+            //amr
+            //showOnUI();
+        }
 
-            @Override
-            public void IOChangeEvent(NurEventIOChange event) {
-            }
+        @Override
+        public void clientDisconnectedEvent(NurEventClientInfo event) {
+        }
 
-        });
-    }
+        @Override
+        public void clientConnectedEvent(NurEventClientInfo event) {
+        }
+
+        @Override
+        public void bootEvent(String event) {
+        }
+
+        @Override
+        public void IOChangeEvent(NurEventIOChange event) {
+            Log.i(TAG, "Key " + event.source);
+        }
+
+        @Override
+        public void autotuneEvent(NurEventAutotune event) {
+        }
+
+        @Override
+        public void tagTrackingScanEvent(NurEventTagTrackingData event) {
+        }
+
+        //@Override
+        public void tagTrackingChangeEvent(NurEventTagTrackingChange event) {
+        }
+    };
 
     public int getLastRSSIValue() {
         return mLastVal;
@@ -285,35 +396,31 @@ public class NurHelper {
         return true;
     }
 
-    /**
-     * New tags will be added to our existing tag storage.
-     * List view adapter will be updated for new tags
-     */
-    public void handleInventoryResult() {
-        synchronized (mNurApi.getStorage()) {
-            HashMap<String, String> tmp;
-            NurTagStorage tagStorage = mNurApi.getStorage();
-
-            // Add tags tp internal tag storage
-            for (int i = 0; i < tagStorage.size(); i++) {
-
-                NurTag tag = tagStorage.get(i);
-
-                if (mTagStorage.addTag(tag)) {
-                    // Add new
-                    tmp = new HashMap<String, String>();
-                    tmp.put("epc", tag.getEpcString());
-                    tmp.put("rssi", Integer.toString(tag.getRssi()));
-                    tag.setUserdata(tmp);
-
-                    mNurListener.onInventoryResult(tmp);
-                }
+    public void initReading(NurListener nurListener) {
+        setNurListener(nurListener);
+        mTraceController = new TraceTagController(mNurApi);
+        mTraceController.setListener(new TraceTagController.TraceTagListener() {
+            @Override
+            public void traceTagEvent(TraceTagController.TracedTagInfo data) {
+                int scaledRssi = data.scaledRssi;
+                mNurListener.onTraceTagEvent(scaledRssi);
+                mLastVal = scaledRssi;
             }
 
-            // Clear NurApi tag storage
-            tagStorage.clear();
-            Beeper.beep(Beeper.BEEP_40MS);
-        }
+            @Override
+            public void readerDisconnected() {
+                stopTrace();
+            }
+
+            @Override
+            public void readerConnected() {
+            }
+
+            @Override
+            public void IOChangeEvent(NurEventIOChange event) {
+            }
+
+        });
     }
 
     public String getConnectButtonText() {
@@ -355,141 +462,45 @@ public class NurHelper {
         }
     }
 
-
     /**
-     * NurApi event handlers.
-     * NOTE: All NurApi events are called from NurApi thread, thus direct UI updates are not allowed.
-     * If you need to access UI controls, you can use runOnUiThread(Runnable) or Handler.
+     * New tags will be added to our existing tag storage.
+     * List view adapter will be updated for new tags
      */
-    private NurApiListener mNurApiListener = new NurApiListener() {
-        @Override
-        public void triggeredReadEvent(NurEventTriggeredRead event) {
-        }
+    public void handleInventoryResult() {
+        synchronized (mNurApi.getStorage()) {
+            HashMap<String, String> tmp;
+            NurTagStorage tagStorage = mNurApi.getStorage();
 
-        @Override
-        public void traceTagEvent(NurEventTraceTag event) {
-        }
+            final JSONArray jsonArray = new JSONArray();
 
-        @Override
-        public void programmingProgressEvent(NurEventProgrammingProgress event) {
-        }
+            // Add tags tp internal tag storage
+            for (int i = 0; i < tagStorage.size(); i++) {
+                JSONObject json = new JSONObject();
+                NurTag tag = tagStorage.get(i);
 
-        @Override
-        public void nxpEasAlarmEvent(NurEventNxpAlarm event) {
-        }
-
-        @Override
-        public void logEvent(int level, String txt) {
-        }
-
-        @Override
-        public void inventoryStreamEvent(NurEventInventory event) {
-        }
-
-        @Override
-        public void inventoryExtendedStreamEvent(NurEventInventory event) {
-        }
-
-        @Override
-        public void frequencyHopEvent(NurEventFrequencyHop event) {
-        }
-
-        @Override
-        public void epcEnumEvent(NurEventEpcEnum event) {
-        }
-
-        @Override
-        public void disconnectedEvent() {
-            mIsConnected = false;
-            Log.i(TAG, "Disconnected!");
-
-            context.runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    Toast.makeText(context, "Reader disconnected", Toast.LENGTH_SHORT).show();
-                    showConnecting();
-
-                    // Show smart pair ui
-                    if (!mShowingSmartPair && hAcTr != null) {
-                        String clsName = hAcTr.getClass().getSimpleName();
-                        if (clsName.equals("NurApiSmartPairAutoConnect")) {
-                            mShowingSmartPair = showSmartPairUI();
-                        }
-                    } else {
-                        mShowingSmartPair = false;
+                if (mTagStorage.addTag(tag)) {
+                    // Add new
+                    tmp = new HashMap<String, String>();
+                    tmp.put("epc", tag.getEpcString());
+                    tmp.put("rssi", Integer.toString(tag.getRssi()));
+                    tag.setUserdata(tmp);
+                    try {
+                        json.put("epc", tag.getEpcString());
+                        json.put("rssi", Integer.toString(tag.getRssi()));
+                        jsonArray.put(json);
+                    } catch (JSONException e) {
+                        e.printStackTrace();
                     }
+
+                    mNurListener.onInventoryResult(tmp, jsonArray.toString());
                 }
-            });
-        }
-
-        @Override
-        public void deviceSearchEvent(NurEventDeviceInfo event) {
-        }
-
-        @Override
-        public void debugMessageEvent(String event) {
-        }
-
-        @Override
-        public void connectedEvent() {
-            //Device is connected.
-            // Let's find out is device provided with accessory support (Barcode reader, battery info...) like EXA
-            try {
-                if (mAccExt.isSupported()) {
-                    //Yes. Accessories supported
-                    mIsAccessorySupported = true;
-                    //Let's take name of device from Accessory api
-                    mUiConnStatusText = "Connected to " + mAccExt.getConfig().name;
-                } else {
-                    //Accessories not supported. Probably fixed reader.
-                    mIsAccessorySupported = false;
-                    NurRespReaderInfo ri = mNurApi.getReaderInfo();
-                    mUiConnStatusText = "Connected to " + ri.name;
-                }
-            } catch (Exception ex) {
-                mUiConnStatusText = ex.getMessage();
             }
 
-            mIsConnected = true;
-            Log.i(TAG, "Connected!");
-            Beeper.beep(Beeper.BEEP_100MS);
-
-            //amr
-            //mUiConnStatusTextColor = Color.GREEN;
-            mUiConnButtonText = "DISCONNECT";
-            //amr
-            //showOnUI();
+            // Clear NurApi tag storage
+            tagStorage.clear();
+            //Beeper.beep(Beeper.BEEP_40MS);
         }
-
-        @Override
-        public void clientDisconnectedEvent(NurEventClientInfo event) {
-        }
-
-        @Override
-        public void clientConnectedEvent(NurEventClientInfo event) {
-        }
-
-        @Override
-        public void bootEvent(String event) {
-        }
-
-        @Override
-        public void IOChangeEvent(NurEventIOChange event) {
-            Log.i(TAG, "Key " + event.source);
-        }
-
-        @Override
-        public void autotuneEvent(NurEventAutotune event) {
-        }
-
-        @Override
-        public void tagTrackingScanEvent(NurEventTagTrackingData event) {
-        }
-
-        //@Override
-        public void tagTrackingChangeEvent(NurEventTagTrackingChange event) {
-        }
-    };
+    }
 
     public NurApiListener getNurApiListener() {
         return mNurApiListener;
@@ -541,6 +552,9 @@ public class NurHelper {
         return false;
     }
 
+    /**
+     * Show Sensors Page
+     */
     public void showSensors() {
         try {
             if (mNurApi.isConnected()) {

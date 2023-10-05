@@ -168,6 +168,11 @@ public class Trace extends Activity implements NurListener {
 
 
     @Override
+    public void onConnected(boolean isConnected) {
+
+    }
+
+    @Override
     public void onStopTrace() {
         mRefreshButton.setText("Refresh");
     }
@@ -184,8 +189,8 @@ public class Trace extends Activity implements NurListener {
     }
 
     @Override
-    public void onInventoryResult(HashMap<String, String> tmp) {
-        mListViewAdapterData.add(tmp);
+    public void onInventoryResult(HashMap<String, String> tags, String jsonString) {
+        mListViewAdapterData.add(tags);
         mTagsListViewAdapter.notifyDataSetChanged();
 
     }
